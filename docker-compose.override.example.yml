@@ -1,0 +1,29 @@
+# ==============================================================================
+# clfbench - Local Docker Compose Override Example
+# Copy to 'docker-compose.override.yml' (gitignored) to customize locally.
+# ==============================================================================
+
+services:
+  clfbench:
+    # Example 1: Mount an external dataset disk and pin to a specific GPU (GPU 0)
+    volumes:
+      - /mnt/datasets/imagenet_subset:/data:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+
+  dev:
+    # Example 2: Expose JupyterLab port in interactive dev container
+    ports:
+      - "8888:8888"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
