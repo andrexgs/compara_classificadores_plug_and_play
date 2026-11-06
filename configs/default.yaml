@@ -1,0 +1,28 @@
+# ==============================================================================
+# clfbench - Default Configuration (Phase 0 Skeleton)
+# ==============================================================================
+
+experiment:
+  name: "baseline_experiment"
+  seed: 42
+  deterministic: true
+  data_dir: "/data"
+  output_dir: "/outputs"
+
+hardware:
+  # Device options: "auto", "cuda", "cpu"
+  device: "auto"
+  num_workers: 4
+  pin_memory: true
+  mixed_precision: true
+
+logging:
+  # Standard Python logging level: "DEBUG", "INFO", "WARNING", "ERROR"
+  level: "INFO"
+  save_logs: true
+  log_filename: "clfbench.log"
+  tensorboard: true
+  wandb:
+    enabled: false
+    project: "clfbench"
+    entity: null
