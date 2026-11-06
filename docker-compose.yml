@@ -1,0 +1,174 @@
+# ==============================================================================
+# clfbench - Docker Compose v2 Configuration
+# ==============================================================================
+
+x-common-env: &common-env
+  PYTHONUNBUFFERED: "1"
+  MPLBACKEND: "Agg"
+  TORCH_HOME: "/cache/torch"
+  HF_HOME: "/cache/huggingface"
+  CUDA_VISIBLE_DEVICES: "${CUDA_VISIBLE_DEVICES:-all}"
+  WANDB_API_KEY: "${WANDB_API_KEY:-}"
+
+x-common-volumes: &common-volumes
+  - ${DATA_DIR:-./data}:/data:ro
+  - ${OUTPUT_DIR:-./outputs}:/outputs
+  - ./configs:/workspace/configs
+  - torch_cache:/cache/torch
+  - hf_cache:/cache/huggingface
+
+x-build-args: &build-args
+  PYTHON_VERSION: "${PYTHON_VERSION:-3.10}"
+  CUDA_VERSION: "${CUDA_VERSION:-12.1.1}"
+  TORCH_VERSION: "${TORCH_VERSION:-2.3.1}"
+  TORCHVISION_VERSION: "${TORCHVISION_VERSION:-0.18.1}"
+  CUDA_WHEEL_TAG: "${CUDA_WHEEL_TAG:-cu121}"
+  UID: "${UID:-1000}"
+  GID: "${GID:-1000}"
+  APP_VERSION: "${IMAGE_TAG:-0.1.0}"
+  VCS_REF: "${VCS_REF:-unknown}"
+  BUILD_DATE: "${BUILD_DATE:-unknown}"
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Default GPU runtime service
+  # ----------------------------------------------------------------------------
+  clfbench:
+    image: clfbench:${IMAGE_TAG:-0.1.0}-gpu
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: gpu
+      args: *build-args
+    user: "${UID:-1000}:${GID:-1000}"
+    shm_size: "${SHM_SIZE:-8gb}"
+    restart: "no"
+    environment:
+      <<: *common-env
+    volumes: *common-volumes
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: ["clfbench", "--help"]
+
+  # ----------------------------------------------------------------------------
+  # 2. CPU-only runtime service (profile: cpu)
+  # ----------------------------------------------------------------------------
+  clfbench-cpu:
+    image: clfbench:${IMAGE_TAG:-0.1.0}-cpu
+    profiles: ["cpu"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: cpu
+      args: *build-args
+    user: "${UID:-1000}:${GID:-1000}"
+    shm_size: "${SHM_SIZE:-8gb}"
+    restart: "no"
+    environment:
+      <<: *common-env
+      CUDA_VISIBLE_DEVICES: ""
+      CLFBENCH_FORCE_CPU: "1"
+    volumes: *common-volumes
+    command: ["clfbench", "--help"]
+
+  # ----------------------------------------------------------------------------
+  # 3. Interactive development shell with live code bind mounts (profile: dev)
+  # ----------------------------------------------------------------------------
+  dev:
+    image: clfbench:${IMAGE_TAG:-0.1.0}-dev
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+      args: *build-args
+    user: "${UID:-1000}:${GID:-1000}"
+    shm_size: "${SHM_SIZE:-8gb}"
+    restart: "no"
+    stdin_open: true
+    tty: true
+    environment:
+      <<: *common-env
+    volumes:
+      - ${DATA_DIR:-./data}:/data:ro
+      - ${OUTPUT_DIR:-./outputs}:/outputs
+      - ./configs:/workspace/configs
+      - ./src:/workspace/src
+      - ./tests:/workspace/tests
+      - ./scripts:/workspace/scripts
+      - torch_cache:/cache/torch
+      - hf_cache:/cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: ["bash"]
+
+  # ----------------------------------------------------------------------------
+  # 4. Automated test runner with coverage (profile: test)
+  # ----------------------------------------------------------------------------
+  test:
+    image: clfbench:${IMAGE_TAG:-0.1.0}-dev
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+      args: *build-args
+    user: "${UID:-1000}:${GID:-1000}"
+    shm_size: "${SHM_SIZE:-8gb}"
+    restart: "no"
+    environment:
+      <<: *common-env
+      CLFBENCH_FORCE_CPU: "1"
+    volumes:
+      - ${DATA_DIR:-./data}:/data:ro
+      - ${OUTPUT_DIR:-./outputs}:/outputs
+      - ./configs:/workspace/configs
+      - ./src:/workspace/src
+      - ./tests:/workspace/tests
+      - torch_cache:/cache/torch
+      - hf_cache:/cache/huggingface
+    command: ["pytest", "--cov=clfbench", "--cov-report=term-missing", "-v"]
+
+  # ----------------------------------------------------------------------------
+  # 5. TensorBoard visualization server (profile: tools)
+  # ----------------------------------------------------------------------------
+  tensorboard:
+    image: clfbench:${IMAGE_TAG:-0.1.0}-dev
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+      args: *build-args
+    user: "${UID:-1000}:${GID:-1000}"
+    restart: "no"
+    ports:
+      - "${TENSORBOARD_PORT:-6006}:6006"
+    environment:
+      <<: *common-env
+      CUDA_VISIBLE_DEVICES: ""
+    volumes:
+      - ${OUTPUT_DIR:-./outputs}:/outputs:ro
+      - torch_cache:/cache/torch
+      - hf_cache:/cache/huggingface
+    command:
+      - "tensorboard"
+      - "--logdir=/outputs"
+      - "--host=0.0.0.0"
+      - "--port=6006"
+
+volumes:
+  torch_cache:
+    name: clfbench_torch_cache
+  hf_cache:
+    name: clfbench_hf_cache

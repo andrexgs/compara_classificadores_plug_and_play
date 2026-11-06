@@ -1,0 +1,47 @@
+# Git & VCS
+.git
+.gitignore
+.gitattributes
+.github
+
+# Documentation & metadata (keep README.md for pyproject.toml build)
+docs/
+*.md
+!README.md
+
+# Local environments & configs
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+docker-compose*.yml
+Makefile
+.pre-commit-config.yaml
+
+# Caches & temporary artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+build/
+dist/
+*.egg-info/
+
+# Datasets, outputs, logs & weights
+data/
+outputs/
+cache/
+wandb/
+runs/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+*.log
